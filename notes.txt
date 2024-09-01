@@ -1,0 +1,1 @@
+Check all at once, return array of links if anything updated
