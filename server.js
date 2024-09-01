@@ -11,10 +11,14 @@ app.listen(port, () => {
 });
 
 app.get('/ping', (_, res) => {
+   console.log("Pinged")
+
    res.status(200).send("Pong")
 })
 
-app.get('/check-and-notify', async (_, res) => {
+app.get('/check', async (_, res) => {
+   console.log("Checking in")
+
    console.time("-- Time taken for all checks --");
 
    const results = await checkAllURLs();
