@@ -3,7 +3,7 @@ import cors from 'cors'
 import { TARGETS } from './targets.js'
 
 const app = express();
-const port = process.env.PORT || 4000;
+const port = 3001;
 app.use(cors())
 
 app.listen(port, () => {
