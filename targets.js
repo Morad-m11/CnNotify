@@ -11,19 +11,24 @@ async function openAndExecute(name, url) {
 
     const browser = await puppeteer.launch({ headless: true });
     const page = await browser.newPage();
-    const response = await page.goto(url, { waitUntil: 'networkidle0' });
 
-    const count = await getItemCount[name](page);
+    try {
+        const response = await page.goto(url, { waitUntil: 'networkidle0' });
+        const count = await getItemCount[name](page);
 
-    const status = response.status();
-    await browser.close();
+        const status = response.status();
+        await browser.close();
 
-    console.log(`INFO | Ending instructions for ${url}. Status: ${status}. Previous Count: ${previousItemCount[name]}, Current Count: ${count}`);
+        console.log(`INFO | Ending instructions for ${url}. Status: ${status}. Previous Count: ${previousItemCount[name]}, Current Count: ${count}`);
 
-    if (count && count > previousItemCount[name]) {
-        previousItemCount[name] = count;
-        return { name, url, changes: true }
-    } else {
+        if (count && count > previousItemCount[name]) {
+            previousItemCount[name] = count;
+            return { name, url, changes: true }
+        } else {
+            return { name, url, changes: false }
+        }
+    } catch (error) {
+        console.log(`ERROR | Instructions for ${url} failed. Error: ${error}`)
         return { name, url, changes: false }
     }
 }
