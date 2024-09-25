@@ -29,7 +29,7 @@ app.get('/check', async (_, res) => {
    if (resultsWithUpdates.length > 0) {
       res.status(200).send(resultsWithUpdates)
    } else {
-      res.status(207).send()
+      res.status(408).send()
    }
 
    console.timeEnd("-- Time taken for all checks --");
