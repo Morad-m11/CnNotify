@@ -9,11 +9,11 @@ import puppeteer, { Page } from "puppeteer";
 async function openAndExecute(name, url) {
     console.log(`INFO | Starting instructions for ${url}`);
 
-    const browser = await puppeteer.launch({ headless: true });
-    const page = await browser.newPage();
-
     try {
-        const response = await page.goto(url, { waitUntil: 'networkidle0' });
+        const browser = await puppeteer.launch({ headless: true, timeout: 60000 });
+        const page = await browser.newPage();
+
+        const response = await page.goto(url, { waitUntil: 'networkidle0', timeout: 60000 });
         const count = await getItemCount[name](page);
 
         const status = response.status();
