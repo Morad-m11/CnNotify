@@ -21,7 +21,11 @@ app.get('/check', async (_, res) => {
 
     console.time('-- Time taken for all checks --');
 
-    const updated = await checkChangedURLs();
+    // added changes for backwards compatibility
+    const updated = (await checkChangedURLs()).map((x) => ({
+        ...x,
+        changes: true,
+    }));
 
     console.log('INFO | Returning items changed: ', updated);
 
