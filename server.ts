@@ -17,8 +17,6 @@ app.get('/ping', (_, res) => {
 });
 
 app.get('/check', async (_, res) => {
-    console.log('Checking in');
-
     console.time('-- Time taken for all checks --');
 
     // added changes for backwards compatibility
@@ -26,10 +24,6 @@ app.get('/check', async (_, res) => {
         ...x,
         changes: true,
     }));
-
-    console.warn('returning', updated);
-
-    console.log('INFO | Returning items changed: ', updated);
 
     if (updated.length > 0) {
         res.status(200).send(updated);

@@ -30,17 +30,21 @@ export async function checkChangedURLs(): Promise<CheckResult[]> {
     });
 
     const instructions = Object.entries(Targets).map(([name, url]) =>
-        openAndExecute(browser, name as Targets, url),
+        executeInstructions(browser, name as Targets, url),
     );
 
-    return await Promise.all(instructions)
+    const updates = await Promise.all(instructions)
         .then((result) => result.flat())
         .finally(async () => {
             await browser.close();
         });
+
+    console.log('INFO | Returning items changed: ', updates);
+
+    return updates;
 }
 
-async function openAndExecute(
+async function executeInstructions(
     browser: Browser,
     name: Targets,
     url: string,
