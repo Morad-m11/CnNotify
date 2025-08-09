@@ -136,7 +136,7 @@ async function openPage(browser: Browser, url: string) {
 }
 
 function getChangedItems(previous: CheckResult[], current: CheckResult[]) {
-    const prevSet = new Set(previous);
-    const updates = current.filter((x) => !prevSet.has(x));
+    const prevSet = new Set(previous.map((x) => JSON.stringify(x)));
+    const updates = current.filter((x) => !prevSet.has(JSON.stringify(x)));
     return updates;
 }
