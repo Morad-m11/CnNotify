@@ -1,7 +1,4 @@
 .env
+.vscode
 node_modules
-client.js
-notes.txt
-screenshot.jpg
-test-target-servers.js
-test-targets.js
+dist
