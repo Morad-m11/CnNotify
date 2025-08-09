@@ -27,6 +27,8 @@ app.get('/check', async (_, res) => {
         changes: true,
     }));
 
+    console.warn('returning', updated);
+
     console.log('INFO | Returning items changed: ', updated);
 
     if (updated.length > 0) {

@@ -1,4 +1,4 @@
-import puppeteer, { Page } from 'puppeteer';
+import puppeteer, { Browser, Page } from 'puppeteer';
 import robotsParser from 'robots-parser';
 
 type CheckResult = {
@@ -24,64 +24,58 @@ const previousResults: Record<Targets, CheckResult[]> = {
 };
 
 export async function checkChangedURLs(): Promise<CheckResult[]> {
+    const browser = await puppeteer.launch({
+        headless: true,
+        timeout: 60000,
+    });
+
     const instructions = Object.entries(Targets).map(([name, url]) =>
-        openAndExecute(name as Targets, url),
+        openAndExecute(browser, name as Targets, url),
     );
 
-    return (await Promise.all(instructions)).flat();
+    return await Promise.all(instructions)
+        .then((result) => result.flat())
+        .finally(async () => {
+            await browser.close();
+        });
 }
 
 async function openAndExecute(
+    browser: Browser,
     name: Targets,
     url: string,
 ): Promise<CheckResult[]> {
-    console.log(`INFO | Starting instructions for ${url}`);
-
-    const isAllowed = await checkRobotsFile(url);
-
-    if (!isAllowed) {
-        console.log(
-            `WARN | Instructions for ${url} failed. Disallowed by robots.txt`,
-        );
-        return [];
-    }
+    let page: Page | null = null;
 
     try {
-        const browser = await puppeteer.launch({
-            headless: true,
-            timeout: 60000,
-        });
+        console.log(`INFO | Starting instructions for ${url}`);
 
-        const page = await browser.newPage();
+        await checkRobotsOrThrow(url);
 
-        const response = await page.goto(url, {
-            waitUntil: 'networkidle0',
-            timeout: 60000,
-        });
+        page = await openPage(browser, url);
+        const result = await siteInstructions[name](page);
+        const changes = getChangedItems(previousResults[name], result);
 
-        if (!response) {
-            return [];
-        }
+        // update previous results with current results
+        previousResults[name] = result;
 
-        const items = await itemFns[name](page);
-        const status = response.status();
-        await browser.close();
-
-        console.log(`INFO | Ending instructions for ${url}. Status: ${status}`);
-
-        if (JSON.stringify(items) !== JSON.stringify(previousResults[name])) {
-            previousResults[name] = items;
-            return items;
-        }
-
-        return [];
+        // return only changes
+        return changes;
     } catch (error) {
-        console.log(`ERROR | Instructions for ${url} failed. Error: ${error}`);
+        const message =
+            error instanceof Error ? error.message : JSON.stringify(error);
+        console.log(
+            `ERROR | Instructions for ${url} failed. Error: ${message}`,
+        );
         return [];
+    } finally {
+        await page?.close();
+
+        console.log(`INFO | Ending instructions for ${url}.`);
     }
 }
 
-const itemFns: ItemFnMap = {
+const siteInstructions: ItemFnMap = {
     Heimbau: async (page) => {
         return await page.evaluate(() => {
             const table = document.querySelector('table')!;
@@ -105,14 +99,40 @@ const itemFns: ItemFnMap = {
     },
 };
 
-async function checkRobotsFile(url: string) {
+async function checkRobotsOrThrow(url: string) {
     const baseUrl = url.slice(0, url.lastIndexOf('/'));
     const robotsTxt = await fetchRobotsFile(baseUrl);
-    return robotsParser(baseUrl, robotsTxt).isAllowed(url);
+
+    const isAllowed = robotsParser(baseUrl, robotsTxt).isAllowed(url);
+
+    if (!isAllowed) {
+        throw new Error('Disallowed by robots.txt');
+    }
 }
 
 async function fetchRobotsFile(url: string) {
     const robotsUrl = new URL('/robots.txt', url).href;
     const res = await fetch(robotsUrl);
     return await res.text();
+}
+
+async function openPage(browser: Browser, url: string) {
+    const page = await browser.newPage();
+
+    const response = await page.goto(url, {
+        waitUntil: 'networkidle0',
+        timeout: 60000,
+    });
+
+    if (!response) {
+        throw new Error('Did not get a page response');
+    }
+
+    return page;
+}
+
+function getChangedItems(previous: CheckResult[], current: CheckResult[]) {
+    const prevSet = new Set(previous);
+    const updates = current.filter((x) => !prevSet.has(x));
+    return updates;
 }
