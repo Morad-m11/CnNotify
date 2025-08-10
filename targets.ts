@@ -108,9 +108,8 @@ const siteInstructions: ItemFnMap = {
     },
     Schwarzatal: async (page) => {
         return await page.evaluate(() => {
-            const itemBoxes = document.querySelectorAll(
-                '.immo-item-list .immo-item',
-            );
+            const itemList = document.querySelector('.immo-item-list');
+            const itemBoxes = itemList!.querySelectorAll('.immo-item');
 
             return Array.from(itemBoxes).map((item) => ({
                 name: item.querySelector('.headline')!.textContent.trim(),
