@@ -87,8 +87,12 @@ const siteInstructions: ItemFnMap = {
             const rows = document.querySelectorAll('.views-row');
 
             return Array.from(rows).map((row) => ({
-                name: row.querySelector('.child a h2')!.textContent.trim(),
-                url: (row.querySelector('.child a') as HTMLLinkElement)!.href,
+                name: row
+                    .querySelector('.child.description a h2')!
+                    .textContent.trim(),
+                url: (row.querySelector(
+                    '.child.descritpion a',
+                ) as HTMLLinkElement)!.href,
             }));
         });
     },
@@ -104,7 +108,9 @@ const siteInstructions: ItemFnMap = {
     },
     Schwarzatal: async (page) => {
         return await page.evaluate(() => {
-            const itemBoxes = document.querySelectorAll('.immo-item');
+            const itemBoxes = document.querySelectorAll(
+                '.immo-item-list .immo-item',
+            );
 
             return Array.from(itemBoxes).map((item) => ({
                 name: item.querySelector('.headline')!.textContent.trim(),
