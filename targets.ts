@@ -13,14 +13,16 @@ type ItemFnMap = {
 type Targets = keyof typeof Targets;
 
 const Targets = {
-    Heimbau: 'https://www.heimbau.at/node/4202',
+    Heimbau: 'https://www.heimbau.at/neubau',
     Wiensued:
         'https://www.wiensued.at/wohnen/?dev=&city=Wien&search=&space-from=&space-to=&room-from=&room-to=&state%5B%5D=inbau#search-results',
+    Schwarzatal: 'https://www.schwarzatal.at/projekte/bau-und-planung',
 };
 
 const previousResults: Record<Targets, CheckResult[]> = {
     Heimbau: [],
     Wiensued: [],
+    Schwarzatal: [],
 };
 
 export async function checkChangedURLs(): Promise<CheckResult[]> {
@@ -82,12 +84,11 @@ async function executeInstructions(
 const siteInstructions: ItemFnMap = {
     Heimbau: async (page) => {
         return await page.evaluate(() => {
-            const table = document.querySelector('table')!;
-            const rows = Array.from(table.querySelectorAll('tbody tr'));
+            const rows = document.querySelectorAll('.views-row');
 
-            return rows.map((row) => ({
-                name: row.querySelector('td')!.textContent.trim(),
-                url: row.querySelector('a')!.href,
+            return Array.from(rows).map((row) => ({
+                name: row.querySelector('.child a h2')!.textContent.trim(),
+                url: (row.querySelector('.child a') as HTMLLinkElement)!.href,
             }));
         });
     },
@@ -96,8 +97,18 @@ const siteInstructions: ItemFnMap = {
             const itemBoxes = document.querySelectorAll('.image-and-text');
 
             return Array.from(itemBoxes).map((item) => ({
-                name: item.querySelector('.address h4')!.textContent,
+                name: item.querySelector('.address h4')!.textContent.trim(),
                 url: (item.querySelector('.image a') as HTMLLinkElement).href,
+            }));
+        });
+    },
+    Schwarzatal: async (page) => {
+        return await page.evaluate(() => {
+            const itemBoxes = document.querySelectorAll('.immo-item');
+
+            return Array.from(itemBoxes).map((item) => ({
+                name: item.querySelector('.headline')!.textContent.trim(),
+                url: (item.querySelector('.link a') as HTMLLinkElement).href,
             }));
         });
     },
