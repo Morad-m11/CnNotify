@@ -16,23 +16,23 @@ const Targets = {
     Heimbau: 'https://www.heimbau.at/neubau',
     Wiensued:
         'https://www.wiensued.at/wohnen/?dev=&city=Wien&search=&space-from=&space-to=&room-from=&room-to=&state%5B%5D=inbau#search-results',
-    Schwarzatal: 'https://www.schwarzatal.at/projekte/bau-und-planung',
+    Schwarzatal: 'https://www.schwarzatal.at/projekte/bau-und-planung'
 };
 
 const previousResults: Record<Targets, CheckResult[]> = {
     Heimbau: [],
     Wiensued: [],
-    Schwarzatal: [],
+    Schwarzatal: []
 };
 
 export async function checkChangedURLs(): Promise<CheckResult[]> {
     const browser = await puppeteer.launch({
         headless: true,
-        timeout: 60000,
+        timeout: 60000
     });
 
     const instructions = Object.entries(Targets).map(([name, url]) =>
-        executeInstructions(browser, name as Targets, url),
+        executeInstructions(browser, name as Targets, url)
     );
 
     const updates = await Promise.all(instructions)
@@ -49,7 +49,7 @@ export async function checkChangedURLs(): Promise<CheckResult[]> {
 async function executeInstructions(
     browser: Browser,
     name: Targets,
-    url: string,
+    url: string
 ): Promise<CheckResult[]> {
     let page: Page | null = null;
 
@@ -70,8 +70,8 @@ async function executeInstructions(
     } catch (error) {
         const message =
             error instanceof Error ? error.message : JSON.stringify(error);
-        console.log(
-            `ERROR | Instructions for ${url} failed. Error: ${message}`,
+        console.error(
+            `ERROR | Instructions for ${url} failed. Error: ${message}`
         );
         return [];
     } finally {
@@ -84,15 +84,16 @@ async function executeInstructions(
 const siteInstructions: ItemFnMap = {
     Heimbau: async (page) => {
         return await page.evaluate(() => {
-            const rows = document.querySelectorAll('.views-row');
+            const region = document.querySelector('.region.region-content')!;
+            const rows = region.querySelectorAll('.views-row');
 
             return Array.from(rows).map((row) => ({
                 name: row
-                    .querySelector('.child.description a h2')!
+                    .querySelector('.child.description h2')!
                     .textContent.trim(),
                 url: (row.querySelector(
-                    '.child.descritpion a',
-                ) as HTMLLinkElement)!.href,
+                    '.child.description a'
+                ) as HTMLAnchorElement)!.href
             }));
         });
     },
@@ -102,7 +103,7 @@ const siteInstructions: ItemFnMap = {
 
             return Array.from(itemBoxes).map((item) => ({
                 name: item.querySelector('.address h4')!.textContent.trim(),
-                url: (item.querySelector('.image a') as HTMLLinkElement).href,
+                url: (item.querySelector('.image a') as HTMLLinkElement).href
             }));
         });
     },
@@ -113,10 +114,10 @@ const siteInstructions: ItemFnMap = {
 
             return Array.from(itemBoxes).map((item) => ({
                 name: item.querySelector('.headline')!.textContent.trim(),
-                url: (item.querySelector('.link a') as HTMLLinkElement).href,
+                url: (item.querySelector('.link a') as HTMLLinkElement).href
             }));
         });
-    },
+    }
 };
 
 async function checkRobotsOrThrow(url: string) {
@@ -141,7 +142,7 @@ async function openPage(browser: Browser, url: string) {
 
     const response = await page.goto(url, {
         waitUntil: 'networkidle0',
-        timeout: 60000,
+        timeout: 60000
     });
 
     if (!response) {
