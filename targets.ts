@@ -1,4 +1,4 @@
-import puppeteer, { Browser, Page } from 'puppeteer';
+import crypto from 'crypto';
 import robotsParser from 'robots-parser';
 
 type CheckResult = {
@@ -6,119 +6,58 @@ type CheckResult = {
     url: string;
 };
 
-type ItemFnMap = {
-    [K in Targets]: (page: Page) => Promise<CheckResult[]>;
-};
-
-type Targets = keyof typeof Targets;
-
-const Targets = {
+const Target = {
     Heimbau: 'https://www.heimbau.at/neubau',
     Wiensued:
         'https://www.wiensued.at/wohnen/?dev=&city=Wien&search=&space-from=&space-to=&room-from=&room-to=&state%5B%5D=inbau#search-results',
     Schwarzatal: 'https://www.schwarzatal.at/projekte/bau-und-planung'
 };
 
-const previousResults: Record<Targets, CheckResult[]> = {
-    Heimbau: [],
-    Wiensued: [],
-    Schwarzatal: []
+type Target = keyof typeof Target;
+
+const previousHash: Record<Target, string> = {
+    Heimbau: '',
+    Wiensued: '',
+    Schwarzatal: ''
 };
 
 export async function checkChangedURLs(): Promise<CheckResult[]> {
-    const browser = await puppeteer.launch({
-        headless: true,
-        timeout: 60000
-    });
+    const targets = Object.entries(Target) as [Target, string][];
+    const instructions = targets.map(([name, url]) => compareHash(name, url));
 
-    const instructions = Object.entries(Targets).map(([name, url]) =>
-        executeInstructions(browser, name as Targets, url)
-    );
-
-    const updates = await Promise.all(instructions)
-        .then((result) => result.flat())
-        .finally(async () => {
-            await browser.close();
-        });
-
-    console.log('INFO | Returning items changed: ', updates);
+    const results = await Promise.all(instructions);
+    const updates = results.flat().filter((x) => !!x);
 
     return updates;
 }
 
-async function executeInstructions(
-    browser: Browser,
-    name: Targets,
+async function compareHash(
+    name: Target,
     url: string
-): Promise<CheckResult[]> {
-    let page: Page | null = null;
-
+): Promise<CheckResult | null> {
     try {
         console.log(`INFO | Starting instructions for ${url}`);
 
         await checkRobotsOrThrow(url);
 
-        page = await openPage(browser, url);
-        const result = await siteInstructions[name](page);
-        const changes = getChangedItems(previousResults[name], result);
+        const html = await (await fetch(url)).text();
+        const hash = crypto.hash('sha256', html, 'hex');
 
-        // update previous results with current results
-        previousResults[name] = result;
+        if (previousHash[name] !== hash) {
+            previousHash[name] = hash;
+            return { name, url };
+        }
 
-        // return only changes
-        return changes;
-    } catch (error) {
-        const message =
-            error instanceof Error ? error.message : JSON.stringify(error);
-        console.error(
-            `ERROR | Instructions for ${url} failed. Error: ${message}`
-        );
-        return [];
+        previousHash[name] = hash;
+        return null;
+    } catch (err) {
+        const msg = err instanceof Error ? err.message : JSON.stringify(err);
+        console.error(`ERROR | Instructions for ${url} failed. Error: ${msg}`);
+        return null;
     } finally {
-        await page?.close();
-
         console.log(`INFO | Ending instructions for ${url}.`);
     }
 }
-
-const siteInstructions: ItemFnMap = {
-    Heimbau: async (page) => {
-        return await page.evaluate(() => {
-            const region = document.querySelector('.region.region-content')!;
-            const rows = region.querySelectorAll('.views-row');
-
-            return Array.from(rows).map((row) => ({
-                name: row
-                    .querySelector('.child.description h2')!
-                    .textContent.trim(),
-                url: (row.querySelector(
-                    '.child.description a'
-                ) as HTMLAnchorElement)!.href
-            }));
-        });
-    },
-    Wiensued: async (page) => {
-        return await page.evaluate(() => {
-            const itemBoxes = document.querySelectorAll('.image-and-text');
-
-            return Array.from(itemBoxes).map((item) => ({
-                name: item.querySelector('.address h4')!.textContent.trim(),
-                url: (item.querySelector('.image a') as HTMLLinkElement).href
-            }));
-        });
-    },
-    Schwarzatal: async (page) => {
-        return await page.evaluate(() => {
-            const itemList = document.querySelector('.immo-item-list');
-            const itemBoxes = itemList!.querySelectorAll('.immo-item');
-
-            return Array.from(itemBoxes).map((item) => ({
-                name: item.querySelector('.headline')!.textContent.trim(),
-                url: (item.querySelector('.link a') as HTMLLinkElement).href
-            }));
-        });
-    }
-};
 
 async function checkRobotsOrThrow(url: string) {
     const baseUrl = url.slice(0, url.lastIndexOf('/'));
@@ -135,25 +74,4 @@ async function fetchRobotsFile(url: string) {
     const robotsUrl = new URL('/robots.txt', url).href;
     const res = await fetch(robotsUrl);
     return await res.text();
-}
-
-async function openPage(browser: Browser, url: string) {
-    const page = await browser.newPage();
-
-    const response = await page.goto(url, {
-        waitUntil: 'networkidle0',
-        timeout: 60000
-    });
-
-    if (!response) {
-        throw new Error('Did not get a page response');
-    }
-
-    return page;
-}
-
-function getChangedItems(previous: CheckResult[], current: CheckResult[]) {
-    const prevSet = new Set(previous.map((x) => JSON.stringify(x)));
-    const updates = current.filter((x) => !prevSet.has(JSON.stringify(x)));
-    return updates;
 }
